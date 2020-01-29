@@ -4,9 +4,14 @@
 
 This utility imports Zendesk tickets to a monday.com board. You can use it as an example to build your own monday.com import scripts!
 
-The script implements an `add_to_board()` function to call the monday.com API and create a new item. We store monday.com column values in a dictionary and send it as a [GraphQL variable](https://graphql.org/learn/queries/#variables). We convert the values to JSON the using the `json.dumps()` function.
-
 The script also uses the [Zendesk Search API](https://developer.zendesk.com/rest_api/docs/support/search#search) to get a set of tickets to import.
+
+## Why it works
+
+Take note of a couple of elements that make this script work well with GraphQL: 
++ The script implements an `add_to_board()` function to call the monday.com API and create a new item. 
++ We store monday.com column values in a dictionary and send it as a [GraphQL variable](https://graphql.org/learn/queries/#variables). 
++ We convert the values to JSON the using the `json.dumps()` function.
 
 #### Field mappings
 
