@@ -15,3 +15,62 @@ This is an example of how you can use our API to extend the capabilities of our 
 ## Tic Tac Toe: NodeJS
 
 This one's for fun :) Play tic tac toe with monday.com! 
+
+## Query Examples in testing environment
+
+Here are some basic query examples to get you started. 
+
+### Get all items from a given board
+
+
+```
+query {
+  boards (ids:162169280) {
+    id
+    name
+    items {
+      id
+    }
+  }
+}
+```
+
+### Create a new item on a board
+
+```
+mutation {
+  create_item (item_name:"Hey friends!", board_id:162169280) {
+    id
+  }
+}
+```
+
+### Change the value of a specific column on a specific item
+
+```
+mutation {
+  change_column_value (board_id:162169280, item_id:441822004, column_id:"status", value:"{\"label\" : \"Done\"}") {
+    id
+  }
+}
+```
+
+### Create a new item and assign its column values
+
+```
+mutation {
+  create_item (item_name:"Hey friends!", board_id:162169280, column_values: "{\"status\" : {\"label\" : \"Done\"}, \"text\" : \"HEYTHERE\"}") {
+    id
+  }
+}
+```
+
+### Get all items with the status "Done"
+
+```
+query {
+  items_by_column_values(board_id:162169280, column_id:"status", column_value:"Done") {
+    id
+  }
+}
+```
