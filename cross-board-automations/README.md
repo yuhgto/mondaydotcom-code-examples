@@ -6,7 +6,7 @@ Our team works a lot with contractors. We want to be able to push tasks from our
 
 ## Overview of Integration
 
-This code will let you automate the handoff process when a contractor is added to a task on the main board. When a contractor is added to the dropdown column, the integration will create an item on the contractor's dedicated project board. This allows managers to quickly send data about a project to the relevant contractor's board without worrying about them seeing items that are not applicable to them.
+This code will let you automate the handoff process when a contractor is added to a task on the main board. When a contractor is added to the dropdown column, the integration will create an item on the contractor's dedicated project board. If the board doesn't exist, it will create one from a template. This allows managers to quickly send data about a project to the relevant contractor's board without worrying about them seeing items that are not applicable to them.
 
 ## Documentation
 
