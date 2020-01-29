@@ -59,7 +59,7 @@ if __name__ == "__main__" :
         'sort_order': 'desc'        # from newest to oldest
     }
 
-    search_url = 'https://monday.zendesk.com/api/v2/search.json?' + urlencode(params)
+    search_url = 'https://monday.zendesk.com/api/v2/search.json?' + urlencode(params) # your zendesk account URL here
 
     # loop through each page of search
     while search_url != None:
