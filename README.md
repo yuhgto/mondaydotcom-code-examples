@@ -2,6 +2,8 @@
 
 This repo contains three examples of integrations you can set up with the monday.com API. One is written in Python and two are in NodeJS.
 
+Each folder contains a README that goes deeper into how to set up and test the code example. 
+
 ## Zendesk Import Example: Python
 
 This example uses Python to import a set of Zendesk tickets into monday.com. This is amazing if you want to use monday.com as a repository of old ticket examples.
