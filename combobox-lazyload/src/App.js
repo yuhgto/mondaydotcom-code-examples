@@ -46,7 +46,7 @@ const App = () => {
             } 
           }`, {variables: {boardIds} ,apiVersion: "2023-10"});
         page += 1;
-        console.log('mapped shit', items_page.data.boards[0].items_page.items.map(x => {return {label: x.name, id: x.id}}))
+        console.log('mapped stuff', items_page.data.boards[0].items_page.items.map(x => {return {label: x.name, id: x.id}}))
         setCanRenderCombobox(false);
         let optionsToAdd = items_page.data.boards[0].items_page.items.map(x => {return {label: x.name, id: x.id}});
         dispatch({
