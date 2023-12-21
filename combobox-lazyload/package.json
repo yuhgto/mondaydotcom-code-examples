@@ -5,7 +5,7 @@
   "scripts": {
     "start": "npm run stop && concurrently \"npm run server\" \"npm run expose\"",
     "build": "react-scripts build",
-    "expose": "mtunnel -p 8301",
+    "expose": "mapps tunnel:create -p 8301",
     "server": "react-scripts start",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
@@ -31,7 +31,7 @@
     ]
   },
   "devDependencies": {
-    "@mondaydotcomorg/tunnel": "^0.4.1",
+    "@mondaycom/apps-cli": "^2.1.1",
     "concurrently": "^5.2.0",
     "cross-port-killer": "^1.2.1",
     "eslint-config-react-app": "^7.0.1",
