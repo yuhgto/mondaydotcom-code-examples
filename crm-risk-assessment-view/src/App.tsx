@@ -35,7 +35,9 @@ const App = () => {
   const [error, setError] = useState<{ msg: string; error: any } | null>(null);
   function throwError(message: string, error: any) {
     console.error(message, ": ", error);
-    setError({ msg: message, error });
+    if (!error) {
+      setError({ msg: message, error });
+    }
   }
 
   // API CALL: get items from board
@@ -162,63 +164,70 @@ const App = () => {
   const boardIds = appContext?.data?.boardIds ?? [];
 
   // get x axis column from settings prop
-  let dealValueColumn:Record<string, string[]> | undefined;
-    if (!settings.isLoading && !items?.loading) {
-      if (settings?.data && items?.data) {
-        console.log({ settings: settings.data }); //TODO: remove log
-        const cols: string[] = Object.keys(settings.data.xAxis);
-        if (cols.length > 0) {
-  
-          // check that column is a number column
-          const boards = items?.data?.data?.boards ?? [];
-          const boardColumns = boards[0]?.columns;
-          if (boardColumns && boardColumns.length > 0) {
-            const dealValueColumnMetadata = boardColumns.find(x => x?.id === cols[0])
-            if (dealValueColumnMetadata) {
-              console.log({dealValueColumnMetadata})
-              if (dealValueColumnMetadata.type !== 'numbers') {
-                // TODO: when this error is thrown, it never unthrows
-                const errorMessage = 'Please select a number column for deal value.';
-                throwError(errorMessage,errorMessage)
-              } else {
-                dealValueColumn = { [boardIds[0]]: [cols[0]] };
-              }
-            }
-          } else {
-            const errorMessage = 'Error: There are no columns on the board.';
-            throwError(errorMessage,errorMessage)
-          }
+  let dealValueColumn: Record<string, string[]> | undefined;
+  let dealValueColumnMetadata: Record<string, any> | undefined | null;
+  if (!settings.isLoading && !items?.loading) {
+    if (settings?.data && items?.data) {
+      console.log({ settings: settings.data }); //TODO: remove log
+      const cols: string[] = Object.keys(settings.data.xAxis);
+      if (cols.length > 0) {
+        // check that column is a number column
+        const boards = items?.data?.data?.boards ?? [];
+        const boardColumns = boards[0]?.columns;
+        if (boardColumns && boardColumns.length > 0) {
+          dealValueColumnMetadata = boardColumns.find(
+            (x) => x?.id === cols[0]
+          );
+          dealValueColumn = { [boardIds[0]]: [cols[0]] };
+        } else {
+          const errorMessage = "Error: There are no columns on the board.";
+          throwError(errorMessage, errorMessage);
         }
       }
     }
+  }
+
+  useEffect(() => {
+    if (dealValueColumnMetadata) {
+      console.log({ dealValueColumnMetadata });
+      if (dealValueColumnMetadata.type !== "numbers") {
+        // FIXME: throwing this error leads to infinite loop
+        const errorMessage =
+          "Please select a number column for deal value.";
+        throwError(errorMessage, errorMessage);
+      } else {
+        setError(null);
+      }
+    }
+  }, [dealValueColumn, dealValueColumnMetadata?.type])
 
   // set chart data from subitems count or risk level
   let chartData = useMemo(() => {
     try {
-      // TODO: get timeline count from the itemsList prop and then make it work
       // TODO: In video, show how to change it from counting activities to counting subitems
       // & getting number from a column
-      // TODO: remove logic to count multiple boards (and then re-add it in the video)
       const boards = items?.data?.data?.boards ?? [];
       if (boards?.length > 0 && dealValueColumn) {
         const data: ChartRow[] | undefined = [];
         let currentBoard = boardIds[0].toString();
         const itemsList = boards[0]?.items_page?.items ?? [];
         if (itemsList.length === 0) {
-          const errorMessage = "Error retrieving data from board: Board has no items.";
-          throwError(errorMessage, errorMessage)
+          const errorMessage =
+            "Error retrieving data from board: Board has no items.";
+          throwError(errorMessage, errorMessage);
         }
-        itemsList.map((item) => { // loop through the items on the board to set chart data
+        itemsList.map((item) => {
+          // loop through the items on the board to set chart data
           // console.log({ item });
           let dealValue = item.column_values.find(
             (x) => x.id === dealValueColumn[currentBoard][0]
           );
           let subitemCount = item.subitems?.length ?? 0;
-          let timelineCount = timelines?.timelines?.[item.id]?.length ?? 0; 
+          let timelineCount = timelines?.timelines?.[item.id]?.length ?? 0;
           const riskiness = timelineCount ?? subitemCount ?? 0; // TODO: Calculate riskiness using subitems or column value as well
           // console.log({ boardIds, item, xColumn, columns });
           data?.push({
-            deal_value: dealValue?.text,
+            deal_value: parseInt(dealValue?.text ?? '0'),
             riskiness,
             item_id: item.id,
             item_name: item.name,
@@ -229,7 +238,7 @@ const App = () => {
         if (data) {
           return data; // this will break for multiple boards (widget)
         }
-      } 
+      }
       // TODO: figure out how this can run
       // else if (!dealValueColumn && !settings.isLoading && !appContext.isLoading) {
       //   if (settings.data?.xAxis) {
