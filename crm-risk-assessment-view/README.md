@@ -1,6 +1,10 @@
 ## Overview
  This is a CRM reporting app to demo the capabilities of the monday app framework & API. 
 
+ ## Prerequisites
+ - Node.js and npm installed on your machine (recommended: node v20)
+ - A monday accoun ([sign up for a developer account here](https://auth.monday.com/users/sign_up_new?developer=true&utm_source=dev_documentation#soft_signup_from_step))
+
  ## Get started
 
 # Add your API token: 
