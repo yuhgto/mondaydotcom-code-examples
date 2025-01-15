@@ -40,6 +40,35 @@ const App = () => {
     }
   }
 
+  // CHECK: if settings contains the xAxis field
+  useEffect(() => {
+    if (!appContext.isLoading && appContext.data) {
+      const selectedBoards = appContext?.data?.boardIds ?? [];
+      if (selectedBoards.length === 0) {
+        const message = "No board connected. Please select a board.";
+        console.error(message);
+        if (!error) setError({ msg: message, error: message });
+      } else {
+        setError(null); // flush error
+      }
+    }
+    if (!settings.isLoading && settings.data) {
+      if (!settings.data.hasOwnProperty("xAxis")) {
+        const message =
+          "No deal value column set. Did you add this settings field to the app feature?";
+        console.error(message);
+        if (!error) setError({ msg: message, error: message });
+      } else if (settings.data.xAxis === null) {
+        const message =
+          "No deal value column set. Choose a column in the app settings.";
+        console.error(message);
+        if (!error) setError({ msg: message, error: message });
+      } else {
+        setError(null); // flush error
+      }
+    }
+  }, [appContext, settings]);
+
   // API CALL: get items from board
   const [items, setItems] = useState<
     | {
@@ -62,11 +91,11 @@ const App = () => {
         console.log({ boardItems: res });
         setItems({ data: res?.data, loading: false, error: res.data?.error });
       } catch (error) {
-        throwError("Error fetching board items:", error);
+        if (!error) throwError("Error fetching board items:", error);
       }
     };
 
-    if (!appContext.isLoading) {
+    if (!appContext.isLoading && currentBoard.length !== 0) {
       fetchItemsFromBoard();
     }
   }, [currentBoard]);
@@ -98,8 +127,8 @@ const App = () => {
     isTimelinesLoading: true,
   };
   function timelinesReducer(state: TimelinesState, action: TimelinesAction) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { type, payload } = action;
-    console.log({ msg: `REDUCER CALL - ${action.type}`, type, payload }); //TODO: remove log
     switch (action.type) {
       case ReducerActionTypes.SET_ITEMS:
         return { ...state, items: action.payload.items, isItemsLoading: false };
@@ -108,7 +137,6 @@ const App = () => {
         const itemTimeline = payload.timeline;
         var newTimelinesState = state.timelines ?? {};
         newTimelinesState[itemId] = itemTimeline;
-        console.log(newTimelinesState); //TODO: remove log
         return {
           ...state,
           timelines: newTimelinesState,
@@ -155,7 +183,7 @@ const App = () => {
             payload: { item_id: item.id, timeline: itemTimelineData },
           });
         } catch (error) {
-          throwError("Could not fetch item timelines", error);
+          if (!error) throwError("Could not fetch item timelines", error);
         }
       });
     }
@@ -166,46 +194,31 @@ const App = () => {
   // get x axis column from settings prop
   let dealValueColumn: Record<string, string[]> | undefined;
   let dealValueColumnMetadata: Record<string, any> | undefined | null;
-  if (!settings.isLoading && !items?.loading) {
-    if (settings?.data && items?.data) {
-      console.log({ settings: settings.data }); //TODO: remove log
-      const cols: string[] = Object.keys(settings.data.xAxis);
-      if (cols.length > 0) {
-        // check that column is a number column
-        const boards = items?.data?.data?.boards ?? [];
-        const boardColumns = boards[0]?.columns;
-        if (boardColumns && boardColumns.length > 0) {
-          dealValueColumnMetadata = boardColumns.find(
-            (x) => x?.id === cols[0]
-          );
-          dealValueColumn = { [boardIds[0]]: [cols[0]] };
-        } else {
-          const errorMessage = "Error: There are no columns on the board.";
-          throwError(errorMessage, errorMessage);
+
+  if (settings?.data && items?.data && settings.data.xAxis) {
+    const cols: string[] = Object.keys(settings.data.xAxis);
+    if (cols.length > 0) {
+      // check that column is a number column
+      const boards = items?.data?.data?.boards ?? [];
+      const boardColumns = boards[0]?.columns;
+      if (boardColumns && boardColumns.length > 0) {
+        dealValueColumnMetadata = boardColumns.find((x) => x?.id === cols[0]);
+        dealValueColumn = { [boardIds[0]]: [cols[0]] };
+        if (dealValueColumnMetadata?.type !== "numbers") {
+          const errorMessage = "Please select a number column for deal value.";
+          console.error(errorMessage);
+          if (!error) setError({ msg: errorMessage, error: errorMessage });
         }
+      } else {
+        const errorMessage = "Error: There are no columns on the board.";
+        if (!error) throwError(errorMessage, errorMessage);
       }
     }
   }
 
-  useEffect(() => {
-    if (dealValueColumnMetadata) {
-      console.log({ dealValueColumnMetadata });
-      if (dealValueColumnMetadata.type !== "numbers") {
-        // FIXME: throwing this error leads to infinite loop
-        const errorMessage =
-          "Please select a number column for deal value.";
-        throwError(errorMessage, errorMessage);
-      } else {
-        setError(null);
-      }
-    }
-  }, [dealValueColumn, dealValueColumnMetadata?.type])
-
   // set chart data from subitems count or risk level
   let chartData = useMemo(() => {
     try {
-      // TODO: In video, show how to change it from counting activities to counting subitems
-      // & getting number from a column
       const boards = items?.data?.data?.boards ?? [];
       if (boards?.length > 0 && dealValueColumn) {
         const data: ChartRow[] | undefined = [];
@@ -214,20 +227,17 @@ const App = () => {
         if (itemsList.length === 0) {
           const errorMessage =
             "Error retrieving data from board: Board has no items.";
-          throwError(errorMessage, errorMessage);
+          if (!error) throwError(errorMessage, errorMessage);
         }
         itemsList.map((item) => {
           // loop through the items on the board to set chart data
-          // console.log({ item });
           let dealValue = item.column_values.find(
             (x) => x.id === dealValueColumn[currentBoard][0]
           );
-          let subitemCount = item.subitems?.length ?? 0;
           let timelineCount = timelines?.timelines?.[item.id]?.length ?? 0;
-          const riskiness = timelineCount ?? subitemCount ?? 0; // TODO: Calculate riskiness using subitems or column value as well
-          // console.log({ boardIds, item, xColumn, columns });
+          const riskiness = timelineCount ?? 0;
           data?.push({
-            deal_value: parseInt(dealValue?.text ?? '0'),
+            deal_value: parseInt(dealValue?.text ?? "0"),
             riskiness,
             item_id: item.id,
             item_name: item.name,
@@ -239,17 +249,8 @@ const App = () => {
           return data; // this will break for multiple boards (widget)
         }
       }
-      // TODO: figure out how this can run
-      // else if (!dealValueColumn && !settings.isLoading && !appContext.isLoading) {
-      //   if (settings.data?.xAxis) {
-      //     // TODO: validate that this works
-      //     const message =
-      //       "No deal value column set. Did you add this settings field to the app feature?";
-      //     throwError(message, message);
-      //   }
-      // }
     } catch (error) {
-      throwError("Count not set chart data", error);
+      if (!error) throwError("Count not set chart data", error);
     }
   }, [items, boardIds, dealValueColumn]);
 
