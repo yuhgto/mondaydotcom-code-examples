@@ -1,0 +1,16 @@
+.responsiveContainer {
+    padding: 12px;
+    // overflow: hidden;
+    background-color: white;
+}
+
+.riskChart {
+    padding: 8px;
+    font-family: "Figtree", "Roboto", "Noto Sans Hebrew", "Noto Kufi Arabic", "Noto Sans JP", sans-serif;
+    .recharts-text {
+        fill: black;
+    }
+    .recharts-label {
+        padding: 4px;
+    }
+}
