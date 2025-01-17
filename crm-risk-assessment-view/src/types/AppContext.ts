@@ -6,6 +6,7 @@ export interface GenericContext {
   viewMode: ViewMode;
   instanceId: number;
   instanceType: string;
+  itemId?: string;
   workspaceId: number;
   theme: Theme;
   account: Account;

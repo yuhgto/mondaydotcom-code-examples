@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import "./App.css";
 import "@vibe/core/tokens";
-import React, { useEffect, useState, useMemo, useReducer } from "react";
+import React, { useEffect, useState, useMemo, useReducer, useCallback } from "react";
 import { AttentionBox, Loader } from "@vibe/core";
 import {
   ChartRow,
@@ -12,6 +12,10 @@ import { useAppContext } from "./hooks/UseAppContext";
 import { useAppSettings } from "./hooks/UseAppSettings";
 import { getBoardItems, getItemTimeline } from "./queries.graphql";
 import { SeamlessApiClient } from "@mondaydotcomorg/api";
+import mondaySdk from "monday-sdk-js";
+import { debounce } from "lodash";
+
+const monday = mondaySdk();
 
 type GetBoardItemsQueryResult = {
   data: GetBoardItemsQuery;
@@ -28,6 +32,8 @@ const seamlessApiClient = new SeamlessApiClient("2025-01");
 
 const App = () => {
   const appContext = useAppContext();
+  const currentItemId = appContext.data?.itemId ?? "";
+
   const settings = useAppSettings();
   const currentBoard: string[] | number[] = appContext?.data?.boardIds ?? [];
 
@@ -194,6 +200,8 @@ const App = () => {
   // get x axis column from settings prop
   let dealValueColumn: Record<string, string[]> | undefined;
   let dealValueColumnMetadata: Record<string, any> | undefined | null;
+  let riskColumn: Record<string, string[]> | undefined;
+  let riskColumnMetadata: Record<string, any> | undefined | null;
 
   if (settings?.data && items?.data && settings.data.xAxis) {
     const cols: string[] = Object.keys(settings.data.xAxis);
@@ -215,13 +223,51 @@ const App = () => {
       }
     }
   }
+  if (settings?.data && items?.data && settings.data.yAxis) {
+    const cols: string[] = Object.keys(settings.data.yAxis);
+    if (cols.length > 0) {
+      // check that column is a number column
+      const boards = items?.data?.data?.boards ?? [];
+      const boardColumns = boards[0]?.columns;
+      if (boardColumns && boardColumns.length > 0) {
+        riskColumnMetadata = boardColumns.find((x) => x?.id === cols[0]);
+        riskColumn = { [boardIds[0]]: [cols[0]] };
+        if (dealValueColumnMetadata?.type !== "numbers") {
+          const errorMessage = "Please select a number column for deal value.";
+          console.error(errorMessage);
+          if (!error) setError({ msg: errorMessage, error: errorMessage });
+        }
+      } else {
+        const errorMessage = "Error: There are no columns on the board.";
+        if (!error) throwError(errorMessage, errorMessage);
+      }
+    }
+  }
 
   // set chart data from subitems count or risk level
-  let chartData = useMemo(() => {
+  // const [chartData, setChartData] = useState<ChartRow[] | undefined>();
+  const [chartDataFromCache, setChartDataFromCache] = useState<ChartRow[] | undefined>();
+
+  useEffect(() => {
+    const getDataFromStorage = async () => {
+      const response = await monday.storage.getItem("cachedData") as {data: {value: string, success:boolean, version: string}};
+      console.log({"getData": response})
+      setChartDataFromCache(JSON.parse(response.data.value) as ChartRow[]);
+    }
+    getDataFromStorage();
+  }, [])
+
+  var hasAllTimelinesLoaded:boolean = false;
+  if (!timelines.isItemsLoading && !timelines.isTimelinesLoading) {
+    hasAllTimelinesLoaded= (timelines.items.length === Object.keys(timelines.timelines ?? {}).length)
+  } 
+  
+  var currentItemData:ChartRow[] = [];
+  const chartData = useMemo(() => {
+    const data: ChartRow[] | undefined = [];
     try {
       const boards = items?.data?.data?.boards ?? [];
       if (boards?.length > 0 && dealValueColumn) {
-        const data: ChartRow[] | undefined = [];
         let currentBoard = boardIds[0].toString();
         const itemsList = boards[0]?.items_page?.items ?? [];
         if (itemsList.length === 0) {
@@ -234,25 +280,57 @@ const App = () => {
           let dealValue = item.column_values.find(
             (x) => x.id === dealValueColumn[currentBoard][0]
           );
+          let riskFromColumn;
+          if (riskColumn) {
+            riskFromColumn = item.column_values.find(
+              (x) => x.id === riskColumn[currentBoard][0]
+            )?.text;
+            console.log({riskFromColumn});
+          } 
           let timelineCount = timelines?.timelines?.[item.id]?.length ?? 0;
-          const riskiness = timelineCount ?? 0;
-          data?.push({
-            deal_value: parseInt(dealValue?.text ?? "0"),
-            riskiness,
-            item_id: item.id,
-            item_name: item.name,
-          });
+          const riskiness = riskFromColumn ?? timelineCount ?? 0;
+          if (item.id === currentItemId) {
+            console.log('Selected item')
+            currentItemData = [{
+                deal_value: parseInt(dealValue?.text ?? "0"),
+                riskiness,
+                item_id: item.id,
+                item_name: item.name,
+            }]
+          } else {
+            data?.push({
+              deal_value: parseInt(dealValue?.text ?? "0"),
+              riskiness,
+              item_id: item.id,
+              item_name: item.name,
+            });
+          }
           return item;
         });
-        console.log({ data });
         if (data) {
-          return data; // this will break for multiple boards (widget)
+          return data;
         }
       }
     } catch (error) {
       if (!error) throwError("Count not set chart data", error);
     }
-  }, [items, boardIds, dealValueColumn]);
+  }, [items, boardIds, dealValueColumn])
+
+  const setChartDataInStorage = async (data) => {
+    try {
+      const chartData_JSON = JSON.stringify(data)
+      const response = await monday.storage.setItem("cachedData", chartData_JSON);
+      console.log({"setData": response, chartData: chartData_JSON})
+    } catch (error) {
+      console.error({msg: "Error setting data in storage", error})
+    }
+  }
+  const debouncedSetChartData = useCallback(debounce(setChartDataInStorage, 1000), []);
+  
+  useEffect(() => {
+    debouncedSetChartData(chartData);
+    console.log({hasAllTimelinesLoaded})
+  }, [hasAllTimelinesLoaded])
 
   const loading =
     !items ||
@@ -264,7 +342,8 @@ const App = () => {
   return (
     <div className="App">
       {loading && !error && <Loader size="medium" className="Loader" />}
-      {!loading && !error && <AccountRiskChart chartData={chartData} />}
+      {!hasAllTimelinesLoaded && !loading && !error && <AccountRiskChart chartData={chartDataFromCache} />}
+      {hasAllTimelinesLoaded && !loading && !error && <AccountRiskChart chartData={chartData} selectedItem={currentItemData}/>}
       {error && (
         <AttentionBox
           text={

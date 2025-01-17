@@ -1,4 +1,4 @@
-import React, { FC, PropsWithChildren } from "react";
+import React, { FC, PropsWithChildren, useMemo } from "react";
 import {
   ResponsiveContainer,
   ScatterChart,
@@ -10,6 +10,8 @@ import {
   Scatter,
   LabelList,
   TooltipProps,
+  ReferenceArea,
+  Label,
 } from "recharts";
 import "./AccountRiskChart.scss";
 import mondaySdk from "monday-sdk-js";
@@ -22,16 +24,17 @@ const monday = mondaySdk();
 
 type AccountRiskChartProps = PropsWithChildren<{
   chartData: ChartRow[] | undefined;
+  selectedItem?: ChartRow[];
 }>;
 
 export interface ChartRow {
-  deal_value: number | string | null | undefined;
+  deal_value: number | null | undefined;
   riskiness: number | string | null | undefined;
   item_id: number | string;
   item_name: string;
 }
 
-export const AccountRiskChart: FC<AccountRiskChartProps> = ({ chartData }) => {
+export const AccountRiskChart: FC<AccountRiskChartProps> = ({ chartData, selectedItem }) => {
   // when you click an item, open item card
   const handleChartClick = ({ item_id }) => {
     monday.execute("openItemCard", { itemId: item_id }).then((result) => {
@@ -39,6 +42,44 @@ export const AccountRiskChart: FC<AccountRiskChartProps> = ({ chartData }) => {
     });
   };
   console.log({chartData});
+
+  var [xMin, xMid, xMax] = useMemo(() => {
+    var xMin = 1000000000; 
+    var xMid;
+    var xMax = 0;
+    if (chartData) {
+      chartData?.map((row) => {
+        const deal_value:(number | null) = row?.deal_value ?? null;
+        if (deal_value) {
+          if (deal_value < xMin) xMin = deal_value
+          if (deal_value > xMax) xMax = deal_value
+        }
+        return row;
+      })
+      xMid = xMin + ((xMax - xMin) / 2);
+    }
+    return [xMin, xMid, xMax]
+  }, [chartData])
+
+  var [yMin, yMid, yMax] = useMemo(() => {
+    var yMin = 1000000000; 
+    var yMid;
+    var yMax = 0;
+    if (chartData) {
+      chartData?.map((row) => {
+        const riskiness:(number | null) = parseInt(row?.riskiness?.toString() ?? "0");
+        if (riskiness) {
+          if (riskiness < yMin) yMin = riskiness
+          if (riskiness > yMax) yMax = riskiness
+        }
+        return row;
+      })
+      yMid = yMin + ((yMax - yMin) / 2);
+    }
+    return [yMin, yMid, yMax]
+  }, [chartData])
+
+  // const [xMin, xMid, xMax, yMin, yMid, yMax] = [0,0,0,0,0,0]
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const CustomTooltip = ({
@@ -102,6 +143,10 @@ export const AccountRiskChart: FC<AccountRiskChartProps> = ({ chartData }) => {
           content={<CustomTooltip />}
           isAnimationActive={false}
         />
+        <ReferenceArea x1={xMin} x2={xMid} y1={yMid} y2={yMax} stroke="red" strokeOpacity={0.3} label={<Label value="DROP" position="insideTopLeft"/>} fillOpacity={0.3}/>
+        <ReferenceArea x1={xMid} x2={xMax} y1={yMid} y2={yMax} stroke="red" strokeOpacity={0.3} label={<Label value="INVEST" position="insideTopRight"/>} fillOpacity={0.3}/>
+        <ReferenceArea x1={xMin} x2={xMid} y1={yMin} y2={yMid} stroke="red" strokeOpacity={0.3} label={<Label value="QUICK WINS" position="insideBottomLeft"/>} fillOpacity={0.3}/>
+        <ReferenceArea x1={xMid} x2={xMax} y1={yMin} y2={yMid} stroke="red" strokeOpacity={0.3} label={<Label value="IDEALS" position="insideBottomRight"/>} fillOpacity={0.3}/>
         <Scatter
           data={chartData}
           fill="#0073ea"
@@ -110,7 +155,17 @@ export const AccountRiskChart: FC<AccountRiskChartProps> = ({ chartData }) => {
           shape="circle"
           isAnimationActive={false}
         >
-          <LabelList dataKey="item_name" position="bottom" />
+          <LabelList dataKey="item_name" position="bottom"  className="dataPointLabel"/>
+        </Scatter>
+        <Scatter
+          data={selectedItem}
+          fill="#0073ea"
+          onClick={handleChartClick}
+          className="scatterPoint"
+          shape="triangle"
+          isAnimationActive={false}
+        >
+          <LabelList dataKey="item_name" position="bottom"  className="dataPointLabel"/>
         </Scatter>
       </ScatterChart>
     </ResponsiveContainer>
